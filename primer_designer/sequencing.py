@@ -43,6 +43,8 @@ class VerificationResult:
     mutation: str
     expected_codon: str = ""
     actual_codon: str = ""
+    expected_amino_acid: str = ""
+    actual_amino_acid: str = ""
     verdict: str = "需复核"
     reason: str = ""
     valid_reads: int = 0
@@ -59,6 +61,7 @@ class VerificationResult:
         return {
             "样品编号": self.sample_id, "目标突变": self.mutation,
             "预期密码子": self.expected_codon, "实际密码子": self.actual_codon,
+            "目标氨基酸": self.expected_amino_acid, "实际氨基酸": self.actual_amino_acid,
             "判定": self.verdict, "有效读段数": self.valid_reads,
             "测序方向": self.directions, "参考覆盖率（%）": self.coverage_percent,
             "目标最低Q值": self.target_min_quality, "覆盖范围": self.coverage_range,
@@ -71,6 +74,11 @@ def extract_sample_id(filename: str) -> str:
     stem = PurePath(filename).name.rsplit(".", 1)[0]
     sample = re.split(r"[_-]", stem, maxsplit=1)[0].strip()
     return sample or stem
+
+
+def sample_id_key(value: str) -> str:
+    """Match numeric, alphabetic and mixed sample IDs without case sensitivity."""
+    return str(value or "").strip().casefold()
 
 
 def parse_seq(data: bytes, filename: str) -> RawRead:
@@ -200,6 +208,7 @@ def verify_sample(reference: str, sample_id: str, mutation: str, reads: list[Raw
             raise ValueError(f"无法按引物设计规则得到预期密码子：{design.message}")
         result.mutation = design.mutation
         result.expected_codon = design.optimized_codon
+        result.expected_amino_acid = new_aa
         trimmed = [item for read in reads if (item := q20_trim(read, q_threshold, min_length))]
         result.valid_reads = len(trimmed)
         if not trimmed:
@@ -234,6 +243,8 @@ def verify_sample(reference: str, sample_id: str, mutation: str, reads: list[Raw
         if covered:
             result.coverage_range = f"c.{covered[0] + 1}–{covered[-1] + 1}"
         result.actual_codon = result.consensus[codon_start:codon_start + 3]
+        if all(base in "ACGT" for base in result.actual_codon):
+            result.actual_amino_acid = translate_codon(result.actual_codon)
         target_q = [consensus_q.get(i) for i in range(codon_start, codon_start + 3)]
         numeric_q = [q for q in target_q if q is not None]
         result.target_min_quality = min(numeric_q) if len(numeric_q) == 3 else None
@@ -255,12 +266,16 @@ def verify_sample(reference: str, sample_id: str, mutation: str, reads: list[Raw
         target_complete = all(base in "ACGT" for base in result.actual_codon)
         target_high_quality = result.target_min_quality is not None and result.target_min_quality >= q_threshold
 
-        if target_complete and target_high_quality and result.actual_codon != result.expected_codon:
-            result.verdict, result.reason = "失败", "目标密码子与引物设计预期密码子不一致"
+        if target_complete and target_high_quality and result.actual_amino_acid != result.expected_amino_acid:
+            result.verdict, result.reason = "失败", "目标位点翻译后的氨基酸不正确"
         elif result.extra_variants:
             result.verdict, result.reason = "失败", "检测到目标密码子之外的高质量变异"
-        elif result.actual_codon == result.expected_codon and target_high_quality and not conflicts and not seq_only:
-            result.verdict, result.reason = "通过", "目标密码子正确，未检出额外高质量变异"
+        elif result.actual_amino_acid == result.expected_amino_acid and target_high_quality and not conflicts and not seq_only:
+            result.verdict = "通过"
+            if result.actual_codon == result.expected_codon:
+                result.reason = "目标氨基酸及密码子均正确，未检出额外高质量变异"
+            else:
+                result.reason = f"目标氨基酸正确；实际密码子 {result.actual_codon} 与引物设计预期 {result.expected_codon} 不同（同义密码子）"
         else:
             result.verdict = "需复核"
             if not target_complete:

@@ -2,11 +2,19 @@ import pandas as pd
 import pytest
 
 from primer_designer.design import DesignParameters, design_primers
+from primer_designer.codons import ECOLI_CODONS
 from primer_designer.excel_io import flatten_results, read_mutations, results_bytes, template_bytes
 from primer_designer.sequence import normalize_cds, parse_mutation, reverse_complement, translate_codon
 
 
 CDS = "ATG" + "GCT" * 18 + "GAA" + "GCT" * 25 + "TAA"
+
+
+def test_ecoli_k12_preferred_codon_table_is_used():
+    assert ECOLI_CODONS["V"][0] == "GTG"
+    assert ECOLI_CODONS["E"][0] == "GAA"
+    assert ECOLI_CODONS["L"][0] == "CTG"
+    assert ECOLI_CODONS["P"][0] == "CCG"
 
 
 def test_normalize_fasta_and_validate():

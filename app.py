@@ -9,7 +9,7 @@ import streamlit as st
 from primer_designer.design import DesignParameters, design_primers
 from primer_designer.excel_io import read_mutations, results_bytes, template_bytes
 from primer_designer.sequence import normalize_cds, parse_mutation
-from primer_designer.sequencing import unpack_files, verify_sample
+from primer_designer.sequencing import sample_id_key, unpack_files, verify_sample
 from primer_designer.verification_excel import read_verification_map, verification_results_bytes, verification_template_bytes
 
 st.set_page_config(page_title="大肠杆菌突变设计与验证", page_icon="🧬", layout="wide")
@@ -106,17 +106,17 @@ def render_verification():
                     reference=normalize_cds(reference_raw)
                     if mapping is None:raise ValueError("请上传样品映射 Excel")
                     reads,warnings=unpack_files(files); grouped={}
-                    for read in reads:grouped.setdefault(read.sample_id,[]).append(read)
+                    for read in reads:grouped.setdefault(sample_id_key(read.sample_id),[]).append(read)
                     results=[]
                     for row in mapping.itertuples(index=False):
-                        result=verify_sample(reference,str(row[0]),str(row[1]),grouped.get(str(row[0]),[]),int(q),int(minimum)); result.warnings.extend(warnings); results.append(result)
+                        result=verify_sample(reference,str(row[0]),str(row[1]),grouped.get(sample_id_key(row[0]),[]),int(q),int(minimum)); result.warnings.extend(warnings); results.append(result)
                     st.session_state.update(verification_results=results,verification_reference=reference)
                 except ValueError as exc:st.error(str(exc))
         with right:
             head("02","验证结果","预期密码子由引物设计规则自动生成"); results=st.session_state.get("verification_results"); reference=st.session_state.get("verification_reference","")
             if not results:st.markdown('<div class="empty"><div class="dna"><i>A</i><em></em><i>T</i><em></em><i>G</i></div><strong>等待测序文件</strong><p>同名 AB1/SEQ 自动配对并以 AB1 为主，测序方向由序列比对自动判断。</p></div>',unsafe_allow_html=True)
             else:
-                frame=pd.DataFrame([r.to_dict() for r in results]); st.dataframe(frame[["样品编号","目标突变","预期密码子","实际密码子","判定","有效读段数","测序方向","目标最低Q值","额外变异"]],hide_index=True,width="stretch")
+                frame=pd.DataFrame([r.to_dict() for r in results]); st.dataframe(frame[["样品编号","目标突变","目标氨基酸","实际氨基酸","预期密码子","实际密码子","判定","有效读段数","测序方向","目标最低Q值","额外变异"]],hide_index=True,width="stretch")
                 st.download_button("下载中文验证报告",verification_results_bytes(results),"测序验证结果.xlsx",width="stretch")
                 for r in results:
                     cls={"通过":"pass","需复核":"review","失败":"fail"}[r.verdict]

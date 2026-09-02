@@ -8,7 +8,7 @@ MAP_COLUMNS = ["样品编号", "目标突变"]
 
 
 def verification_template_bytes() -> bytes:
-    return _write_styled_excel(pd.DataFrame([["1", "A123V"]], columns=MAP_COLUMNS), "测序映射")
+    return _write_styled_excel(pd.DataFrame([["A01", "A123V"]], columns=MAP_COLUMNS), "测序映射")
 
 
 def read_verification_map(file) -> pd.DataFrame:
@@ -28,7 +28,7 @@ def read_verification_map(file) -> pd.DataFrame:
 
 
 def verification_results_bytes(results) -> bytes:
-    columns = ["样品编号", "目标突变", "预期密码子", "实际密码子", "判定", "有效读段数", "测序方向",
+    columns = ["样品编号", "目标突变", "目标氨基酸", "实际氨基酸", "预期密码子", "实际密码子", "判定", "有效读段数", "测序方向",
                "参考覆盖率（%）", "目标最低Q值", "覆盖范围", "额外变异", "警告/原因"]
     frame = pd.DataFrame([result.to_dict() for result in results], columns=columns)
     return _write_styled_excel(frame, "测序验证结果")
