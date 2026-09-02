@@ -93,12 +93,14 @@ def render_verification():
             else:
                 fasta=st.file_uploader("上传 FASTA（可选）",type=["fa","fasta","fna"],key="ref_fasta"); default=fasta.getvalue().decode("utf-8-sig") if fasta else ""
                 reference_raw=st.text_area("参考 CDS",value=default,height=135,placeholder=">reference\nATG...")
-            st.markdown("**样品与目标突变映射**"); d1,d2=st.columns(2); d2.download_button("下载中文模板",verification_template_bytes(),"测序验证映射模板.xlsx",width="stretch")
-            mapfile=st.file_uploader("上传映射 Excel",type=["xlsx"],key="verify_map",label_visibility="collapsed"); mapping=None
+            st.markdown("**填写每个样品要验证的突变**")
+            st.caption("先下载模板，填写样品编号和目标突变，再把表格上传回来。")
+            d1,d2=st.columns(2); d2.download_button("下载填写模板",verification_template_bytes(),"测序验证映射模板.xlsx",width="stretch")
+            mapfile=st.file_uploader("上传突变位点表（Excel）",type=["xlsx"],key="verify_map"); mapping=None
             if mapfile:
                 try: mapping=read_verification_map(mapfile); d1.success(f"{len(mapping)} 个样品")
                 except Exception as exc: st.error(str(exc))
-            files=st.file_uploader("上传 AB1 / SEQ / ZIP",type=["ab1","seq","zip"],accept_multiple_files=True,key="sequence_files")
+            files=st.file_uploader("上传测序结果（AB1 / SEQ / ZIP）",type=["ab1","seq","zip"],accept_multiple_files=True,key="sequence_files")
             with st.expander("质量参数"):
                 q=st.slider("AB1 质量阈值",10,40,20); minimum=st.number_input("最短有效读段 (nt)",20,300,50)
             if st.button("一键验证　→",type="primary",width="stretch"):
